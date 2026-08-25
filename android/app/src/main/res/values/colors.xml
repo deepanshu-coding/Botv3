@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- IBM Carbon Dark palette -->
+    <color name="carbon_bg">#161616</color>
+    <color name="carbon_layer">#262626</color>
+    <color name="carbon_layer_2">#393939</color>
+    <color name="carbon_border">#525252</color>
+    <color name="carbon_text_primary">#f4f4f4</color>
+    <color name="carbon_text_secondary">#c6c6c6</color>
+    <color name="carbon_text_muted">#8d8d8d</color>
+    <color name="carbon_blue">#4589ff</color>
+    <color name="carbon_blue_dark">#0f62fe</color>
+    <color name="carbon_green">#42be65</color>
+    <color name="carbon_red">#fa4d56</color>
+    <color name="carbon_yellow">#f1c21b</color>
+    <color name="carbon_log_bg">#0d0d0d</color>
+    <color name="white">#ffffff</color>
+    <color name="black">#000000</color>
+    <color name="transparent">#00000000</color>
+</resources>
