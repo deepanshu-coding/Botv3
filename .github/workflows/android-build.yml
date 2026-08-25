@@ -19,6 +19,24 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Fix known res-auto namespace typo in layout XML
+        # "http://schemas.android.com/apk/res/auto" (slash) is invalid - the
+        # correct URI is "http://schemas.android.com/apk/res-auto" (hyphen).
+        # With the slash version, AAPT2 can't resolve ANY app: namespaced
+        # attribute (app:tint, app:strokeColor, etc.), which fails resource
+        # linking. This rewrites every XML under res/ in place before the
+        # build runs, so no manual repo edit is needed.
+        run: |
+          set -e
+          FILES=$(grep -rl 'schemas.android.com/apk/res/auto' app/src/main/res || true)
+          if [ -n "$FILES" ]; then
+            echo "Fixing res-auto namespace typo in:"
+            echo "$FILES"
+            echo "$FILES" | xargs sed -i 's#schemas\.android\.com/apk/res/auto#schemas.android.com/apk/res-auto#g'
+          else
+            echo "No res/auto typo found - nothing to fix."
+          fi
+
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
