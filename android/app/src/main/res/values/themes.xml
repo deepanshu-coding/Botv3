@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+
+    <style name="Theme.DeltaAtrBot" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/carbon_blue</item>
+        <item name="colorPrimaryVariant">@color/carbon_blue_dark</item>
+        <item name="colorOnPrimary">@color/white</item>
+        <item name="colorSecondary">@color/carbon_blue</item>
+        <item name="colorSecondaryVariant">@color/carbon_blue_dark</item>
+        <item name="colorOnSecondary">@color/white</item>
+        <item name="android:windowBackground">@color/carbon_bg</item>
+        <item name="android:statusBarColor">@color/carbon_bg</item>
+        <item name="android:navigationBarColor">@color/carbon_bg</item>
+        <item name="android:windowLightStatusBar" tools:targetApi="m">false</item>
+        <item name="android:textColorPrimary">@color/carbon_text_primary</item>
+        <item name="android:textColorSecondary">@color/carbon_text_secondary</item>
+    </style>
+
+    <style name="Theme.DeltaAtrBot.NoBar" parent="Theme.DeltaAtrBot" />
+
+    <style name="CardLabel">
+        <item name="android:textColor">@color/carbon_text_muted</item>
+        <item name="android:textSize">11sp</item>
+        <item name="android:letterSpacing">0.03</item>
+        <item name="android:textAllCaps">true</item>
+    </style>
+
+    <style name="CardValue">
+        <item name="android:textColor">@color/carbon_text_primary</item>
+        <item name="android:textSize">20sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:fontFamily">monospace</item>
+    </style>
+
+    <style name="SectionHeader">
+        <item name="android:textColor">@color/carbon_text_secondary</item>
+        <item name="android:textSize">12sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:letterSpacing">0.04</item>
+        <item name="android:textAllCaps">true</item>
+        <item name="android:paddingBottom">8dp</item>
+    </style>
+
+    <style name="TableHeaderText">
+        <item name="android:textColor">@color/carbon_text_muted</item>
+        <item name="android:textSize">10sp</item>
+        <item name="android:textAllCaps">true</item>
+    </style>
+
+    <style name="TableCellText">
+        <item name="android:textColor">@color/carbon_text_primary</item>
+        <item name="android:textSize">12sp</item>
+        <item name="android:fontFamily">monospace</item>
+    </style>
+
+    <style name="StatCard">
+        <item name="android:orientation">vertical</item>
+        <item name="android:background">@drawable/bg_card</item>
+        <item name="android:padding">14dp</item>
+        <item name="android:layout_margin">4dp</item>
+    </style>
+
+    <style name="SettingsLabel">
+        <item name="android:textColor">@color/carbon_text_secondary</item>
+        <item name="android:textSize">12sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:letterSpacing">0.03</item>
+        <item name="android:textAllCaps">true</item>
+        <item name="android:paddingTop">16dp</item>
+        <item name="android:paddingBottom">8dp</item>
+    </style>
+
+    <style name="SettingsInput">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:background">@drawable/bg_edittext</item>
+        <item name="android:textColor">@color/carbon_text_primary</item>
+        <item name="android:textColorHint">@color/carbon_text_muted</item>
+        <item name="android:textSize">14sp</item>
+        <item name="android:maxLines">1</item>
+    </style>
+
+</resources>
