@@ -2,7 +2,9 @@ name: Build Android APK
 
 on:
   push:
-    branches: [ main, master ]
+    branches:
+      - main
+      - master
     paths:
       - 'android/**'
       - '.github/workflows/android-build.yml'
@@ -40,70 +42,70 @@ jobs:
           if [ -f "$LAYOUT" ]; then
             cp "$LAYOUT" "$LAYOUT.bak"
             python3 << 'PYTHON_FIX'
-import re
-import os
-xml_path = "app/src/main/res/layout/activity_main.xml"
-if not os.path.exists(xml_path):
-    print("  Layout file not found")
-    exit(0)
-with open(xml_path, 'r') as f:
-    content = f.read()
-lines = content.split('\n')
-fixed_lines = []
-multiline_buffer = []
-in_multiline = False
-fixed_count = 0
-for line in lines:
-    if '<' in line and '>' not in line:
-        multiline_buffer.append(line)
-        in_multiline = True
-        continue
-    if in_multiline:
-        multiline_buffer.append(line)
-        if '>' in line:
-            full_tag = '\n'.join(multiline_buffer)
-            if 'android:layout_width' in full_tag and 'android:layout_height' not in full_tag:
-                if not full_tag.strip().startswith('</'):
-                    last_line_index = len(multiline_buffer) - 1
-                    last_line = multiline_buffer[last_line_index]
-                    if '/>' in last_line:
-                        multiline_buffer[last_line_index] = last_line.replace('/>', ' android:layout_height="wrap_content" />')
-                    elif '>' in last_line:
-                        multiline_buffer[last_line_index] = last_line.replace('>', ' android:layout_height="wrap_content">')
-                    fixed_count += 1
-            fixed_lines.extend(multiline_buffer)
-            multiline_buffer = []
-            in_multiline = False
-        continue
-    if 'android:layout_width' in line and 'android:layout_height' not in line:
-        if '<' in line and not line.strip().startswith('</'):
-            if '/>' in line:
-                line = line.replace('/>', ' android:layout_height="wrap_content" />')
-            elif '>' in line:
-                line = line.replace('>', ' android:layout_height="wrap_content">')
-            fixed_count += 1
-    fixed_lines.append(line)
-new_content = '\n'.join(fixed_lines)
-if fixed_count > 0 and new_content != content:
-    with open(xml_path, 'w') as f:
-        f.write(new_content)
-    print(f"  Fixed {fixed_count} view(s) missing layout_height")
-else:
-    print("  No layout_height issues found")
-PYTHON_FIX
+          import re
+          import os
+          xml_path = "app/src/main/res/layout/activity_main.xml"
+          if not os.path.exists(xml_path):
+              print("  Layout file not found")
+              exit(0)
+          with open(xml_path, 'r') as f:
+              content = f.read()
+          lines = content.split('\n')
+          fixed_lines = []
+          multiline_buffer = []
+          in_multiline = False
+          fixed_count = 0
+          for line in lines:
+              if '<' in line and '>' not in line:
+                  multiline_buffer.append(line)
+                  in_multiline = True
+                  continue
+              if in_multiline:
+                  multiline_buffer.append(line)
+                  if '>' in line:
+                      full_tag = '\n'.join(multiline_buffer)
+                      if 'android:layout_width' in full_tag and 'android:layout_height' not in full_tag:
+                          if not full_tag.strip().startswith('</'):
+                              last_line_index = len(multiline_buffer) - 1
+                              last_line = multiline_buffer[last_line_index]
+                              if '/>' in last_line:
+                                  multiline_buffer[last_line_index] = last_line.replace('/>', ' android:layout_height="wrap_content" />')
+                              elif '>' in last_line:
+                                  multiline_buffer[last_line_index] = last_line.replace('>', ' android:layout_height="wrap_content">')
+                              fixed_count += 1
+                      fixed_lines.extend(multiline_buffer)
+                      multiline_buffer = []
+                      in_multiline = False
+                  continue
+              if 'android:layout_width' in line and 'android:layout_height' not in line:
+                  if '<' in line and not line.strip().startswith('</'):
+                      if '/>' in line:
+                          line = line.replace('/>', ' android:layout_height="wrap_content" />')
+                      elif '>' in line:
+                          line = line.replace('>', ' android:layout_height="wrap_content">')
+                      fixed_count += 1
+              fixed_lines.append(line)
+          new_content = '\n'.join(fixed_lines)
+          if fixed_count > 0 and new_content != content:
+              with open(xml_path, 'w') as f:
+                  f.write(new_content)
+              print(f"  Fixed {fixed_count} view(s) missing layout_height")
+          else:
+              print("  No layout_height issues found")
+          PYTHON_FIX
           else
             echo "  WARNING: activity_main.xml not found!"
           fi
 
           echo "== Fix 3: bundled icons =="
           mkdir -p "$RES/drawable"
-          echo 'PHZlY3RvciB4bWxuczphbmRyb2lkPSJodHRwOi8vc2NoZW1hcy5hbmRyb2lkLmNvbS9hcGsvcmVzL2FuZHJvaWQiCiAgICBhbmRyb2lkOndpZHRoPSIyNGRwIgogICAgYW5kcm9pZDpoZWlnaHQ9IjI0ZHAiCiAgICBhbmRyb2lkOnZpZXdwb3J0V2lkdGg9IjI0IgogICAgYW5kcm9pZDp2aWV3cG9ydEhlaWdodD0iMjQiCiAgICBhbmRyb2lkOnRpbnQ9IiNGRkZGRkYiPgogICAgPHBhdGgKICAgICAgICBhbmRyb2lkOmZpbGxDb2xvcj0iI0ZGMDAwMDAwIgogICAgICAgIGFuZHJvaWQ6cGF0aERhdGE9Ik0xOS4xNCwxMi45NGMwLjA0LC0wLjMgMC4wNiwtMC42MSAwLjA2LC0wLjk0YzAsLTAuMzIgLTAuMDIsLTAuNjQgLTAuMDcsLTAuOTRsMi4wMywtMS41OGMwLjE4LC0wLjE0IDAuMjMsLTAuNDEgMC4xMiwtMC42MWwtMS45MiwtMy4zMmMtMC4xMiwtMC4yMiAtMC4zNywtMC4yOSAtMC41OSwtMC4yMmwtMi4zOSwwLjk2Yy0wLjUsLTAuMzggLTEuMDMsLTAuNyAtMS42MiwtMC45NEwxNC40LDIuODFjLTAuMDQsLTAuMjQgLTAuMjQsLTAuNDEgLTAuNDgsLTAuNDFoLTMuODRjLTAuMjQsMCAtMC40MywwLjE3IC0wLjQ3LDAuNDFMOS4yNSw1LjM1Yy0wLjU5LDAuMjQgLTEuMTMsMC41NyAtMS42MiwwLjk0TDUuMjQsNS4zM2MtMC4yMiwtMC4wOCAtMC40NywwIC0wLjU5LDAuMjJMMi43NCw4Ljg3QzIuNjIsOS4wOCAyLjY2LDkuMzQgMi44Niw5LjQ4bDIuMDMsMS41OEM0Ljg0LDExLjM2IDQuOCwxMS42OSA0LjgsMTJzMC4wMiwwLjY0IDAuMDcsMC45NGwtMi4wMywxLjU4Yy0wLjE4LDAuMTQgLTAuMjMsMC40MSAtMC4xMiwwLjYxbDEuOTIsMy4zMmMwLjEyLDAuMjIgMC4zNywwLjI5IDAuNTksMC4yMmwyLjM5LC0wLjk2YzAuNSwwLjM4IDEuMDMsMC43IDEuNjIsMC45NGwwLjM2LDIuNTRjMC4wNSwwLjI0IDAuMjQsMC40MSAwLjQ4LDAuNDFoMy44NGMwLjI0LDAgMC40NCwtMC4xNyAwLjQ3LC0wLjQxbDAuMzYsLTIuNTRjMC41OSwtMC4yNCAxLjEzLC0wLjU2IDEuNjIsLTAuOTRsMi4zOSwwLjk2YzAuMjIsMC4wOCAwLjQ3LDAgMC41OSwtMC4yMmwxLjkyLC0zLjMyYzAuMTIsLTAuMjIgMC4wNywtMC40NyAtMC4xMiwtMC42MUwxOS4xNCwxMi45NHpNMTIsMTUuNmMtMS45OCwwIC0zLjYsLTEuNjIgLTMuNiwtMy42czEuNjIsLTMuNiAzLjYsLTMuNnMzLjYsMS42MiAzLjYsMy42UzEzLjk4LDE1LjYgMTIsMTUuNnoiIC8+CjwvdmVjdG9yPgo=' | base64 -d > "$RES/drawable/ic_settings_gear.xml"
-          echo 'PHZlY3RvciB4bWxuczphbmRyb2lkPSJodHRwOi8vc2NoZW1hcy5hbmRyb2lkLmNvbS9hcGsvcmVzL2FuZHJvaWQiCiAgICBhbmRyb2lkOndpZHRoPSIyNGRwIgogICAgYW5kcm9pZDpoZWlnaHQ9IjI0ZHAiCiAgICBhbmRyb2lkOnZpZXdwb3J0V2lkdGg9IjI0IgogICAgYW5kcm9pZDp2aWV3cG9ydEhlaWdodD0iMjQiCiAgICBhbmRyb2lkOnRpbnQ9IiNGRkZGRkYiPgogICAgPHBhdGgKICAgICAgICBhbmRyb2lkOmZpbGxDb2xvcj0iI0ZGMDAwMDAwIgogICAgICAgIGFuZHJvaWQ6cGF0aERhdGE9Ik0xMiw0LjVDNyw0LjUgMi43Myw3LjYxIDEsMTJjMS43Myw0LjM5IDYsNy41IDExLDcuNXM5LjI3LC0zLjExIDExLC03LjVDMjEuMjcsNy42MSAxNyw0LjUgMTIsNC41ek0xMiwxN2MtMi43NiwwIC01LC0yLjI0IC01LC01czIuMjQsLTUgNSwtNXM1LDIuMjQgNSw1UzE0Ljc2LDE3IDEyLDE3ek0xMiw5Yy0xLjY2LDAgLTMsMS4zNCAtMywzczEuMzQsMyAzLDNzMywtMS4zNCAzLC0zUzEzLjY2LDkgMTIsOXoiIC8+CjwvdmVjdG9yPgo=' | base64 -d > "$RES/drawable/ic_visibility.xml"
+          echo 'PHZlY3RvciB4bWxuczphbmRyb2lkPSJodHRwOi8vc2NoZW1hcy5hbmRyb2lkLmNvbS9hcGsvcmVzL2FuZHJvaWQiCiAgICBhbmRyb2lkOndpZHRoPSIyNGRwIgogICAgYW5kcm9pZDpoZWlnaHQ9IjI0ZHAiCiAgICBhbmRyb2lkOnZpZXdwb3J0[...]'
+          echo 'PHZlY3RvciB4bWxuczphbmRyb2lkPSJodHRwOi8vc2NoZW1hcy5hbmRyb2lkLmNvbS9hcGsvcmVzL2FuZHJvaWQiCiAgICBhbmRyb2lkOndpZHRoPSIyNGRwIgogICAgYW5kcm9pZDpoZWlnaHQ9IjI0ZHAiCiAgICBhbmRyb2lkOnZpZXdwb3J0[...]'
           echo "  wrote icons"
 
           echo "== Fix 4: crash logger =="
           mkdir -p "$KT"
-          echo 'cGFja2FnZSBjb20uZGVsdGFhdHJib3QuYXBwCgppbXBvcnQgYW5kcm9pZC5hcHAuQXBwbGljYXRpb24KaW1wb3J0IGphdmEuaW8uRmlsZQppbXBvcnQgamF2YS5pby5QcmludFdyaXRlcgppbXBvcnQgamF2YS5pby5TdHJpbmdXcml0ZXIKaW1wb3J0IGphdmEudGV4dC5TaW1wbGVEYXRlRm9ybWF0CmltcG9ydCBqYXZhLnV0aWwuRGF0ZQppbXBvcnQgamF2YS51dGlsLkxvY2FsZQoKY2xhc3MgQXBwIDogQXBwbGljYXRpb24oKSB7CiAgICBvdmVycmlkZSBmdW4gb25DcmVhdGUoKSB7CiAgICAgICAgc3VwZXIub25DcmVhdGUoKQogICAgICAgIHZhbCBkZWZhdWx0SGFuZGxlciA9IFRocmVhZC5nZXREZWZhdWx0VW5jYXVnaHRFeGNlcHRpb25IYW5kbGVyKCkKICAgICAgICBUaHJlYWQuc2V0RGVmYXVsdFVuY2F1Z2h0RXhjZXB0aW9uSGFuZGxlciB7IHRocmVhZCwgdGhyb3dhYmxlIC0+CiAgICAgICAgICAgIHRyeSB7CiAgICAgICAgICAgICAgICB2YWwgc3cgPSBTdHJpbmdXcml0ZXIoKQogICAgICAgICAgICAgICAgdGhyb3dhYmxlLnByaW50U3RhY2tUcmFjZShQcmludFdyaXRlcihzdykpCiAgICAgICAgICAgICAgICB2YWwgdHMgPSBTaW1wbGVEYXRlRm9ybWF0KCJ5eXl5LU1NLWRkIEhIOm1tOnNzIiwgTG9jYWxlLlVTKS5mb3JtYXQoRGF0ZSgpKQogICAgICAgICAgICAgICAgdmFsIGRpciA9IGdldEV4dGVybmFsRmlsZXNEaXIobnVsbCkgPzogZmlsZXNEaXIKICAgICAgICAgICAgICAgIHZhbCBmaWxlID0gRmlsZShkaXIsICJjcmFzaF9sb2cudHh0IikKICAgICAgICAgICAgICAgIGZpbGUuYXBwZW5kVGV4dCgiXG49PT09IENSQVNIIGF0ICR0cyA9PT09XG5UaHJlYWQ6ICR7dGhyZWFkLm5hbWV9XG4kc3dcbiIpCiAgICAgICAgICAgIH0gY2F0Y2ggKGU6IFRocm93YWJsZSkgewogICAgICAgICAgICAgICAgLy8gTmV2ZXIgbGV0IHRoZSBjcmFzaCBoYW5kbGVyIGl0c2VsZiBjcmFzaC4KICAgICAgICAgICAgfQogICAgICAgICAgICBkZWZhdWx0SGFuZGxlcj8udW5jYXVnaHRFeGNlcHRpb24odGhyZWFkLCB0aHJvd2FibGUpCiAgICAgICAgfQogICAgfQp9Cg==' | base64 -d > "$KT/App.kt"
+          echo 'cGFja2FnZSBjb20uZGVsdGFhdHJib3QuYXBwCgppbXBvcnQgYW5kcm9pZC5hcHAuQXBwbGljYXRpb24KaW1wb3J0IGphdmEuaW8uRmlsZQppbXBvcnQgamF2YS5pby5QcmludFdyaXRlcgppbXBvcnQgamF2YS5pby5TdHJpbmdXcml0ZXIKaW1w[...]'
           echo "  wrote App.kt"
 
           echo "== Fix 5: register App in manifest =="
