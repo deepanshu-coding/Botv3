@@ -19,90 +19,51 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Self-heal all issues before build
+      - name: Self-heal issues before build
         shell: bash
         run: |
           set -e
-          
           RES="app/src/main/res"
           KT="app/src/main/java/com/deltaatrbot/app"
           LAYOUT="$RES/layout/activity_main.xml"
-          
-          echo "=========================================="
-          echo "Starting self-healing process..."
-          echo "=========================================="
-          
-          # ============================================
-          # FIX 1: Fix res-auto namespace typo
-          # ============================================
-          echo ""
+
           echo "== Fix 1: res-auto namespace typo =="
           FILES=$(grep -rl 'schemas.android.com/apk/res/auto' "$RES" 2>/dev/null || true)
           if [ -n "$FILES" ]; then
             echo "$FILES" | xargs sed -i 's#schemas\.android\.com/apk/res/auto#schemas.android.com/apk/res-auto#g'
-            echo "  ✓ patched: $FILES"
+            echo "  patched: $FILES"
           else
-            echo "  ✓ already OK"
+            echo "  already OK"
           fi
-          
-          # ============================================
-          # FIX 2: Fix missing layout_height attribute (CRASH FIX)
-          # ============================================
-          echo ""
-          echo "== Fix 2: repair missing layout_height attributes =="
+
+          echo "== Fix 2: repair missing layout_height =="
           if [ -f "$LAYOUT" ]; then
             cp "$LAYOUT" "$LAYOUT.bak"
-            
             python3 << 'PYTHON_FIX'
 import re
 import os
-
 xml_path = "app/src/main/res/layout/activity_main.xml"
 if not os.path.exists(xml_path):
-    print("  ✗ Layout file not found")
+    print("  Layout file not found")
     exit(0)
-
 with open(xml_path, 'r') as f:
     content = f.read()
-
-def add_layout_height_to_tag(tag):
-    """Add layout_height to a view tag if missing"""
-    if 'android:layout_height' in tag:
-        return tag
-    if 'android:layout_width' not in tag:
-        return tag
-    if tag.strip().startswith('</'):
-        return tag
-    
-    # Add layout_height before closing
-    if '/>' in tag:
-        return tag.replace('/>', ' android:layout_height="wrap_content" />')
-    elif '>' in tag:
-        return tag.replace('>', ' android:layout_height="wrap_content">')
-    return tag
-
-# Process line by line
 lines = content.split('\n')
 fixed_lines = []
 multiline_buffer = []
 in_multiline = False
 fixed_count = 0
-
 for line in lines:
     if '<' in line and '>' not in line:
-        # Start of multiline tag
         multiline_buffer.append(line)
         in_multiline = True
         continue
-    
     if in_multiline:
         multiline_buffer.append(line)
         if '>' in line:
-            # End of multiline tag
             full_tag = '\n'.join(multiline_buffer)
             if 'android:layout_width' in full_tag and 'android:layout_height' not in full_tag:
                 if not full_tag.strip().startswith('</'):
-                    # Add layout_height to the last line before closing
                     last_line_index = len(multiline_buffer) - 1
                     last_line = multiline_buffer[last_line_index]
                     if '/>' in last_line:
@@ -114,8 +75,6 @@ for line in lines:
             multiline_buffer = []
             in_multiline = False
         continue
-    
-    # Single line tag
     if 'android:layout_width' in line and 'android:layout_height' not in line:
         if '<' in line and not line.strip().startswith('</'):
             if '/>' in line:
@@ -124,220 +83,41 @@ for line in lines:
                 line = line.replace('>', ' android:layout_height="wrap_content">')
             fixed_count += 1
     fixed_lines.append(line)
-
 new_content = '\n'.join(fixed_lines)
-
 if fixed_count > 0 and new_content != content:
     with open(xml_path, 'w') as f:
         f.write(new_content)
-    print(f"  ✓ Fixed {fixed_count} view(s) missing layout_height")
-elif fixed_count == 0:
-    print("  ✓ All views already have layout_height")
+    print(f"  Fixed {fixed_count} view(s) missing layout_height")
 else:
-    print("  ⚠ WARNING: Could not fix layout_height, trying fallback...")
-    
-    # Fallback: simple regex
-    with open(xml_path, 'r') as f:
-        content = f.read()
-    
-    pattern = r'(<[^>]*android:layout_width="[^"]*")((?:(?!android:layout_height)[^>])*?)(/?>)'
-    new_content = re.sub(
-        pattern,
-        lambda m: m.group(1) + m.group(2) + ' android:layout_height="wrap_content" ' + m.group(3)
-                 if 'android:layout_height' not in m.group(0) else m.group(0),
-        content,
-        flags=re.DOTALL
-    )
-    
-    if new_content != content:
-        with open(xml_path, 'w') as f:
-            f.write(new_content)
-        print("  ✓ Applied regex fallback fix")
-    else:
-        print("  ✗ ERROR: Could not fix layout_height, check manually")
+    print("  No layout_height issues found")
 PYTHON_FIX
-
           else
-            echo "  ✗ WARNING: activity_main.xml not found!"
+            echo "  WARNING: activity_main.xml not found!"
           fi
-          
-          # ============================================
-          # FIX 3: Replace unreliable framework icons
-          # ============================================
-          echo ""
-          echo "== Fix 3: replace unreliable framework icons with bundled vectors =="
+
+          echo "== Fix 3: bundled icons =="
           mkdir -p "$RES/drawable"
-          
-          # ic_settings_gear.xml
           echo 'PHZlY3RvciB4bWxuczphbmRyb2lkPSJodHRwOi8vc2NoZW1hcy5hbmRyb2lkLmNvbS9hcGsvcmVzL2FuZHJvaWQiCiAgICBhbmRyb2lkOndpZHRoPSIyNGRwIgogICAgYW5kcm9pZDpoZWlnaHQ9IjI0ZHAiCiAgICBhbmRyb2lkOnZpZXdwb3J0V2lkdGg9IjI0IgogICAgYW5kcm9pZDp2aWV3cG9ydEhlaWdodD0iMjQiCiAgICBhbmRyb2lkOnRpbnQ9IiNGRkZGRkYiPgogICAgPHBhdGgKICAgICAgICBhbmRyb2lkOmZpbGxDb2xvcj0iI0ZGMDAwMDAwIgogICAgICAgIGFuZHJvaWQ6cGF0aERhdGE9Ik0xOS4xNCwxMi45NGMwLjA0LC0wLjMgMC4wNiwtMC42MSAwLjA2LC0wLjk0YzAsLTAuMzIgLTAuMDIsLTAuNjQgLTAuMDcsLTAuOTRsMi4wMywtMS41OGMwLjE4LC0wLjE0IDAuMjMsLTAuNDEgMC4xMiwtMC42MWwtMS45MiwtMy4zMmMtMC4xMiwtMC4yMiAtMC4zNywtMC4yOSAtMC41OSwtMC4yMmwtMi4zOSwwLjk2Yy0wLjUsLTAuMzggLTEuMDMsLTAuNyAtMS42MiwtMC45NEwxNC40LDIuODFjLTAuMDQsLTAuMjQgLTAuMjQsLTAuNDEgLTAuNDgsLTAuNDFoLTMuODRjLTAuMjQsMCAtMC40MywwLjE3IC0wLjQ3LDAuNDFMOS4yNSw1LjM1Yy0wLjU5LDAuMjQgLTEuMTMsMC41NyAtMS42MiwwLjk0TDUuMjQsNS4zM2MtMC4yMiwtMC4wOCAtMC40NywwIC0wLjU5LDAuMjJMMi43NCw4Ljg3QzIuNjIsOS4wOCAyLjY2LDkuMzQgMi44Niw5LjQ4bDIuMDMsMS41OEM0Ljg0LDExLjM2IDQuOCwxMS42OSA0LjgsMTJzMC4wMiwwLjY0IDAuMDcsMC45NGwtMi4wMywxLjU4Yy0wLjE4LDAuMTQgLTAuMjMsMC40MSAtMC4xMiwwLjYxbDEuOTIsMy4zMmMwLjEyLDAuMjIgMC4zNywwLjI5IDAuNTksMC4yMmwyLjM5LC0wLjk2YzAuNSwwLjM4IDEuMDMsMC43IDEuNjIsMC45NGwwLjM2LDIuNTRjMC4wNSwwLjI0IDAuMjQsMC40MSAwLjQ4LDAuNDFoMy44NGMwLjI0LDAgMC40NCwtMC4xNyAwLjQ3LC0wLjQxbDAuMzYsLTIuNTRjMC41OSwtMC4yNCAxLjEzLC0wLjU2IDEuNjIsLTAuOTRsMi4zOSwwLjk2YzAuMjIsMC4wOCAwLjQ3LDAgMC41OSwtMC4yMmwxLjkyLC0zLjMyYzAuMTIsLTAuMjIgMC4wNywtMC40NyAtMC4xMiwtMC42MUwxOS4xNCwxMi45NHpNMTIsMTUuNmMtMS45OCwwIC0zLjYsLTEuNjIgLTMuNiwtMy42czEuNjIsLTMuNiAzLjYsLTMuNnMzLjYsMS42MiAzLjYsMy42UzEzLjk4LDE1LjYgMTIsMTUuNnoiIC8+CjwvdmVjdG9yPgo=' | base64 -d > "$RES/drawable/ic_settings_gear.xml"
-          
-          # ic_visibility.xml
           echo 'PHZlY3RvciB4bWxuczphbmRyb2lkPSJodHRwOi8vc2NoZW1hcy5hbmRyb2lkLmNvbS9hcGsvcmVzL2FuZHJvaWQiCiAgICBhbmRyb2lkOndpZHRoPSIyNGRwIgogICAgYW5kcm9pZDpoZWlnaHQ9IjI0ZHAiCiAgICBhbmRyb2lkOnZpZXdwb3J0V2lkdGg9IjI0IgogICAgYW5kcm9pZDp2aWV3cG9ydEhlaWdodD0iMjQiCiAgICBhbmRyb2lkOnRpbnQ9IiNGRkZGRkYiPgogICAgPHBhdGgKICAgICAgICBhbmRyb2lkOmZpbGxDb2xvcj0iI0ZGMDAwMDAwIgogICAgICAgIGFuZHJvaWQ6cGF0aERhdGE9Ik0xMiw0LjVDNyw0LjUgMi43Myw3LjYxIDEsMTJjMS43Myw0LjM5IDYsNy41IDExLDcuNXM5LjI3LC0zLjExIDExLC03LjVDMjEuMjcsNy42MSAxNyw0LjUgMTIsNC41ek0xMiwxN2MtMi43NiwwIC01LC0yLjI0IC01LC01czIuMjQsLTUgNSwtNXM1LDIuMjQgNSw1UzE0Ljc2LDE3IDEyLDE3ek0xMiw5Yy0xLjY2LDAgLTMsMS4zNCAtMywzczEuMzQsMyAzLDNzMywtMS4zNCAzLC0zUzEzLjY2LDkgMTIsOXoiIC8+CjwvdmVjdG9yPgo=' | base64 -d > "$RES/drawable/ic_visibility.xml"
-          
-          echo "  ✓ wrote ic_settings_gear.xml and ic_visibility.xml"
-          
-          # Update layout references
-          if [ -f "$RES/layout/activity_main.xml" ]; then
-            sed -i 's#@android:drawable/ic_menu_manage#@drawable/ic_settings_gear#g' "$RES/layout/activity_main.xml"
-          fi
-          if [ -f "$RES/layout/activity_settings.xml" ]; then
-            sed -i 's#@android:drawable/ic_menu_view#@drawable/ic_visibility#g' "$RES/layout/activity_settings.xml"
-          fi
-          echo "  ✓ layout references repointed to bundled icons"
-          
-          # ============================================
-          # FIX 4: Add crash logging App.kt
-          # ============================================
-          echo ""
-          echo "== Fix 4: install on-device crash logger =="
+          echo "  wrote icons"
+
+          echo "== Fix 4: crash logger =="
           mkdir -p "$KT"
-          
-          echo 'cGFja2FnZSBjb20uZGVsdGFhdHJib3QuYXBwCgppbXBvcnQgYW5kcm9pZC5hcHAuQXBwbGljYXRpb24KaW1wb3J0IGphdmEuaW8uRmlsZQppbXBvcnQgamF2YS5pby5QcmludFdyaXRlcgppbXBvcnQgamF2YS5pby5TdHJpbmdXcml0ZXIKaW1wb3J0IGphdmEudGV4dC5TaW1wbGVEYXRlRm9ybWF0CmltcG9ydCBqYXZhLnV0aWwuRGF0ZQppbXBvcnQgamF2YS51dGlsLkxvY2FsZQoKLyoqCiAqIEN1c3RvbSBBcHBsaWNhdGlvbiBzdWJjbGFzcyB0aGF0IGluc3RhbGxzIGEgZ2xvYmFsIHVuY2F1Z2h0LWV4Y2VwdGlvbgogKiBoYW5kbGVyLiBJdHMgb25seSBqb2IgaXMgZGlhZ25vc3RpY3M6IG9uIGFueSBjcmFzaCwgaXQgYXBwZW5kcyB0aGUgZnVsbAogKiBzdGFjayB0cmFjZSAod2l0aCB0aW1lc3RhbXApIHRvIGEgcGxhaW4gdGV4dCBmaWxlIHNvIGl0IGNhbiBiZSByZWFkCiAqIGRpcmVjdGx5IG9uIHRoZSBwaG9uZSwgd2l0aG91dCBuZWVkaW5nIGFkYi9hIFBDLgogKgogKiBGaWxlIGxvY2F0aW9uOiBBbmRyb2lkL2RhdGEvY29tLmRlbHRhYXRyYm90LmFwcC9maWxlcy9jcmFzaF9sb2cudHh0CiAqIChvcGVuIHdpdGggYW55IGZpbGUgbWFuYWdlciBhcHAsIG9yIGNvbm5lY3QgdGhlIHBob25lIHRvIGEgUEMgdmlhIFVTQgogKiBhbmQgYnJvd3NlIHRvIHRoYXQgcGF0aCkuCiAqLwpjbGFzcyBBcHAgOiBBcHBsaWNhdGlvbigpIHsKICAgIG92ZXJyaWRlIGZ1biBvbkNyZWF0ZSgpIHsKICAgICAgICBzdXBlci5vbkNyZWF0ZSgpCiAgICAgICAgdmFsIGRlZmF1bHRIYW5kbGVyID0gVGhyZWFkLmdldERlZmF1bHRVbmNhdWdodEV4Y2VwdGlvbkhhbmRsZXIoKQogICAgICAgIFRocmVhZC5zZXREZWZhdWx0VW5jYXVnaHRFeGNlcHRpb25IYW5kbGVyIHsgdGhyZWFkLCB0aHJvd2FibGUgLT4KICAgICAgICAgICAgdHJ5IHsKICAgICAgICAgICAgICAgIHZhbCBzdyA9IFN0cmluZ1dyaXRlcigpCiAgICAgICAgICAgICAgICB0aHJvd2FibGUucHJpbnRTdGFja1RyYWNlKFByaW50V3JpdGVyKHN3KSkKICAgICAgICAgICAgICAgIHZhbCB0cyA9IFNpbXBsZURhdGVGb3JtYXQoInl5eXktTU0tZGQgSEg6bW06c3MiLCBMb2NhbGUuVVMpLmZvcm1hdChEYXRlKCkpCiAgICAgICAgICAgICAgICB2YWwgZGlyID0gZ2V0RXh0ZXJuYWxGaWxlc0RpcihudWxsKSA/OiBmaWxlc0RpcgogICAgICAgICAgICAgICAgdmFsIGZpbGUgPSBGaWxlKGRpciwgImNyYXNoX2xvZy50eHQiKQogICAgICAgICAgICAgICAgZmlsZS5hcHBlbmRUZXh0KCJcbj09PT0gQ1JBU0ggYXQgJHRzID09PT1cblRocmVhZDogJHt0aHJlYWQubmFtZX1cbiRzd1xuIikKICAgICAgICAgICAgfSBjYXRjaCAoZTogVGhyb3dhYmxlKSB7CiAgICAgICAgICAgICAgICAvLyBOZXZlciBsZXQgdGhlIGNyYXNoIGhhbmRsZXIgaXRzZWxmIGNyYXNoLgogICAgICAgICAgICB9CiAgICAgICAgICAgIGRlZmF1bHRIYW5kbGVyPy51bmNhdWdodEV4Y2VwdGlvbih0aHJlYWQsIHRocm93YWJsZSkKICAgICAgICB9CiAgICB9Cn0K' | base64 -d > "$KT/App.kt"
-          
-          echo "  ✓ wrote App.kt"
-          
-          # ============================================
-          # FIX 5: Register App class in manifest
-          # ============================================
-          echo ""
-          echo "== Fix 5: register App class in manifest =="
+          echo 'cGFja2FnZSBjb20uZGVsdGFhdHJib3QuYXBwCgppbXBvcnQgYW5kcm9pZC5hcHAuQXBwbGljYXRpb24KaW1wb3J0IGphdmEuaW8uRmlsZQppbXBvcnQgamF2YS5pby5QcmludFdyaXRlcgppbXBvcnQgamF2YS5pby5TdHJpbmdXcml0ZXIKaW1wb3J0IGphdmEudGV4dC5TaW1wbGVEYXRlRm9ybWF0CmltcG9ydCBqYXZhLnV0aWwuRGF0ZQppbXBvcnQgamF2YS51dGlsLkxvY2FsZQoKY2xhc3MgQXBwIDogQXBwbGljYXRpb24oKSB7CiAgICBvdmVycmlkZSBmdW4gb25DcmVhdGUoKSB7CiAgICAgICAgc3VwZXIub25DcmVhdGUoKQogICAgICAgIHZhbCBkZWZhdWx0SGFuZGxlciA9IFRocmVhZC5nZXREZWZhdWx0VW5jYXVnaHRFeGNlcHRpb25IYW5kbGVyKCkKICAgICAgICBUaHJlYWQuc2V0RGVmYXVsdFVuY2F1Z2h0RXhjZXB0aW9uSGFuZGxlciB7IHRocmVhZCwgdGhyb3dhYmxlIC0+CiAgICAgICAgICAgIHRyeSB7CiAgICAgICAgICAgICAgICB2YWwgc3cgPSBTdHJpbmdXcml0ZXIoKQogICAgICAgICAgICAgICAgdGhyb3dhYmxlLnByaW50U3RhY2tUcmFjZShQcmludFdyaXRlcihzdykpCiAgICAgICAgICAgICAgICB2YWwgdHMgPSBTaW1wbGVEYXRlRm9ybWF0KCJ5eXl5LU1NLWRkIEhIOm1tOnNzIiwgTG9jYWxlLlVTKS5mb3JtYXQoRGF0ZSgpKQogICAgICAgICAgICAgICAgdmFsIGRpciA9IGdldEV4dGVybmFsRmlsZXNEaXIobnVsbCkgPzogZmlsZXNEaXIKICAgICAgICAgICAgICAgIHZhbCBmaWxlID0gRmlsZShkaXIsICJjcmFzaF9sb2cudHh0IikKICAgICAgICAgICAgICAgIGZpbGUuYXBwZW5kVGV4dCgiXG49PT09IENSQVNIIGF0ICR0cyA9PT09XG5UaHJlYWQ6ICR7dGhyZWFkLm5hbWV9XG4kc3dcbiIpCiAgICAgICAgICAgIH0gY2F0Y2ggKGU6IFRocm93YWJsZSkgewogICAgICAgICAgICAgICAgLy8gTmV2ZXIgbGV0IHRoZSBjcmFzaCBoYW5kbGVyIGl0c2VsZiBjcmFzaC4KICAgICAgICAgICAgfQogICAgICAgICAgICBkZWZhdWx0SGFuZGxlcj8udW5jYXVnaHRFeGNlcHRpb24odGhyZWFkLCB0aHJvd2FibGUpCiAgICAgICAgfQogICAgfQp9Cg==' | base64 -d > "$KT/App.kt"
+          echo "  wrote App.kt"
+
+          echo "== Fix 5: register App in manifest =="
           MANIFEST="app/src/main/AndroidManifest.xml"
           if [ -f "$MANIFEST" ]; then
             if ! grep -q 'android:name=".App"' "$MANIFEST"; then
               sed -i 's/<application /<application android:name=".App" /' "$MANIFEST"
-              echo "  ✓ registered App class in manifest"
+              echo "  registered"
             else
-              echo "  ✓ already registered"
+              echo "  already registered"
             fi
-          else
-            echo "  ✗ Manifest not found"
           fi
-          
-          # ============================================
-          # FIX 6: Fix auto-relaunch loop in MainActivity
-          # ============================================
-          echo ""
-          echo "== Fix 6: fix auto-relaunch loop =="
-          MAIN_ACTIVITY="$KT/MainActivity.kt"
-          if [ -f "$MAIN_ACTIVITY" ]; then
-            # Backup original
-            cp "$MAIN_ACTIVITY" "$MAIN_ACTIVITY.bak"
-            
-            # Create Python script to fix the loop
-            python3 << 'PYTHON_FIX_MAIN'
-import re
-import os
 
-main_path = "app/src/main/java/com/deltaatrbot/app/MainActivity.kt"
-if not os.path.exists(main_path):
-    print("  ✗ MainActivity.kt not found")
-    exit(0)
-
-with open(main_path, 'r') as f:
-    content = f.read()
-
-# Pattern to find the problematic block
-pattern = r'if\s*\(!prefs\.isConfigured\(\)\)\s*\{[^}]*startActivity\(Intent\(this,\s*SettingsActivity::class\.java\)\)[^}]*return\s*\}'
-
-replacement = '''if (!prefs.isConfigured()) {
-            subtitleText.text = "Not configured - tap the gear icon to set your Backend URL"
-            setStatusPill("Not configured", R.drawable.bg_pill_gray, R.color.carbon_text_muted)
-            if (!prefs.hasPromptedSetup) {
-                prefs.hasPromptedSetup = true
-                startActivity(Intent(this, SettingsActivity::class.java))
-            }
-            return
-        }'''
-
-# Check if the pattern exists and replace
-if re.search(pattern, content, re.DOTALL):
-    new_content = re.sub(pattern, replacement, content, flags=re.DOTALL)
-    if new_content != content:
-        with open(main_path, 'w') as f:
-            f.write(new_content)
-        print("  ✓ Fixed auto-relaunch loop")
-    else:
-        print("  ⚠ Pattern matched but replacement failed")
-else:
-    # Try alternative pattern
-    pattern2 = r'if\s*\(!prefs\.isConfigured\(\)\)\s*\{[^}]*startActivity\([^)]*SettingsActivity[^)]*\)[^}]*return\s*\}'
-    if re.search(pattern2, content, re.DOTALL):
-        new_content = re.sub(pattern2, replacement, content, flags=re.DOTALL)
-        if new_content != content:
-            with open(main_path, 'w') as f:
-                f.write(new_content)
-            print("  ✓ Fixed auto-relaunch loop (alternative pattern)")
-        else:
-            print("  ⚠ Pattern matched but replacement failed")
-    else:
-        print("  ✓ No auto-relaunch loop found or already fixed")
-PYTHON_FIX_MAIN
-
-          else
-            echo "  ✗ MainActivity.kt not found"
-          fi
-          
-          # ============================================
-          # FIX 7: Add hasPromptedSetup to Prefs.kt
-          # ============================================
-          echo ""
-          echo "== Fix 7: add hasPromptedSetup to Prefs.kt =="
-          PREFS="$KT/Prefs.kt"
-          if [ -f "$PREFS" ]; then
-            if ! grep -q "hasPromptedSetup" "$PREFS"; then
-              # Find the right place to add the property
-              python3 << 'PYTHON_FIX_PREFS'
-import re
-import os
-
-prefs_path = "app/src/main/java/com/deltaatrbot/app/Prefs.kt"
-if not os.path.exists(prefs_path):
-    print("  ✗ Prefs.kt not found")
-    exit(0)
-
-with open(prefs_path, 'r') as f:
-    content = f.read()
-
-# Add hasPromptedSetup property
-property = """    var hasPromptedSetup: Boolean
-        get() = sp.getBoolean("has_prompted_setup", false)
-        set(value) = sp.edit().putBoolean("has_prompted_setup", value).apply()
-
-"""
-
-# Find location to insert (after class declaration or before a function)
-if "hasPromptedSetup" not in content:
-    # Try to insert after companion object or class declaration
-    if "companion object" in content:
-        new_content = re.sub(
-            r'(companion object\s*\{)',
-            r'\1\n' + property,
-            content,
-            count=1
-        )
-        if new_content != content:
-            with open(prefs_path, 'w') as f:
-                f.write(new_content)
-            print("  ✓ Added hasPromptedSetup to Prefs.kt")
-        else:
-            print("  ⚠ Could not add hasPromptedSetup")
-    else:
-        print("  ⚠ companion object not found, skipping")
-else:
-    print("  ✓ hasPromptedSetup already exists")
-PYTHON_FIX_PREFS
-
-            else
-              echo "  ✓ hasPromptedSetup already exists"
-            fi
-          else
-            echo "  ✗ Prefs.kt not found"
-          fi
-          
-          echo ""
-          echo "=========================================="
           echo "Self-healing complete!"
-          echo "=========================================="
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
